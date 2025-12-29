@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Prism v3 | Hyper-Alert Edition</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;600;800&family=Mitr:wght@400;600&family=Charm:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #010409;
+            --neon-pink: #ff007f;
+            --neon-cyan: #00f3ff;
+            --neon-purple: #bc13fe;
+            --glass: rgba(0, 0, 0, 0.6);
+            --border-glow: rgba(0, 243, 255, 0.2);
+            --text-gold: #ffcf00;
+            --lightning: #00ffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', 'Mitr', sans-serif;
+            cursor: none;
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 2000px;
+        }
+
+        /* Web Texture */
+        body::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+            opacity: 0.12;
+            z-index: 50;
+            pointer-events: none;
+            mix-blend-mode: overlay;
+        }
+
+        .spotlight {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(188, 19, 254, 0.15) 0%, transparent 50%);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* --- CURSOR (ต้อง Z-INDEX สูงสุด) --- */
+        .cursor-follower {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-radius: 50%;
+            z-index: 100000;
+            pointer-events: none;
+            box-shadow: 0 0 20px var(--neon-cyan), 0 0 40px var(--neon-purple);
+            transition: background 0.3s;
+        }
+
+        body.is-alerting .cursor-follower {
+            background: var(--neon-pink);
+            box-shadow: 0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink);
+        }
+
+        #canvas-particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #canvas-lightning {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 99999;
+            pointer-events: none;
+        }
+
+        /* DASHBOARD */
+        .dashboard {
+            width: 95vw;
+            height: 85vh;
+            background: rgba(5, 5, 15, 0.85);
+            backdrop-filter: blur(50px);
+            border: 1px solid var(--border-glow);
+            border-radius: 40px;
+            display: flex;
+            z-index: 10;
+            position: relative;
+            transform-style: preserve-3d;
+            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.9);
+            transition: transform 0.1s linear;
+        }
+
+        .sidebar {
+            width: 380px;
+            padding: 2.5rem;
+            border-right: 1px solid var(--border-glow);
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            transform: translateZ(30px);
+        }
+
+        .hero-clock h2 {
+            font-size: 3.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple), var(--neon-pink), var(--neon-cyan));
+            background-size: 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: flowColors 5s linear infinite;
+        }
+
+        @keyframes flowColors {
+            0% {
+                background-position: 0%;
+            }
+
+            100% {
+                background-position: 300%;
+            }
+        }
+
+        input,
+        select {
+            background: var(--glass);
+            border: 1px solid var(--border-glow);
+            padding: 0.8rem;
+            border-radius: 12px;
+            color: var(--neon-cyan);
+            outline: none;
+        }
+
+        .mode-tag {
+            padding: 0.6rem 1.2rem;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            cursor: pointer;
+            border: 1px solid var(--border-glow);
+        }
+
+        .mode-tag.active {
+            background: var(--neon-purple);
+            color: #fff;
+            box-shadow: 0 0 20px var(--neon-purple);
+        }
+
+        .btn-launch {
+            width: 70px;
+            height: 70px;
+            margin: 1rem auto;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            border: none;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: none;
+        }
+
+        .main-view {
+            flex: 1;
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            transform: translateZ(60px);
+        }
+
+        .alarm-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .alarm-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glow);
+            border-radius: 24px;
+            padding: 1.5rem;
+        }
+
+        /* --- ALERT OVERLAY UPGRADE --- */
+        #alert-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 90000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #1a0000 0%, #000 100%);
+            overflow: hidden;
+        }
+
+        #alert-overlay::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(var(--neon-pink) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.1;
+        }
+
+        #alert-time {
+            font-size: 15vw;
+            font-weight: 900;
+            color: #fff;
+            z-index: 90001;
+            text-shadow: 0 0 50px var(--neon-pink), 0 0 100px var(--neon-pink);
+            animation: glitch 0.1s infinite;
+        }
+
+        @keyframes glitch {
+            0% {
+                transform: translate(2px);
+            }
+
+            50% {
+                transform: translate(-2px);
+            }
+
+            100% {
+                transform: translate(0);
+            }
+        }
+
+        .btn-deactivate {
+            z-index: 90001;
+            margin-top: 30px;
+            padding: 1.5rem 4rem;
+            border-radius: 100px;
+            border: none;
+            background: #fff;
+            color: #000;
+            font-weight: 900;
+            letter-spacing: 5px;
+            box-shadow: 0 0 30px #fff;
+            animation: pulseBtn 1s infinite;
+        }
+
+        @keyframes pulseBtn {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 50px var(--neon-pink);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .creator-tag {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            font-family: 'Charm', cursive;
+            font-size: 1.5rem;
+            color: var(--text-gold);
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<body id="app-body">
+
+    <div class="cursor-follower" id="cursor"></div>
+    <div class="spotlight" id="spotlight"></div>
+    <div class="creator-tag">Make by Minako</div>
+
+    <div
+        style="position: absolute; top: 20px; right: 30px; z-index: 100; display: flex; gap: 15px; align-items: center;">
+        <span id="user-display"
+            style="font-size: 0.7rem; color: var(--neon-cyan); font-weight: 800; letter-spacing: 2px;"></span>
+        <button onclick="logout()"
+            style="background:rgba(255,0,127,0.1); border:1px solid var(--neon-pink); color:var(--neon-pink); padding:5px 12px; border-radius:8px; font-weight:800; font-size:0.7rem; cursor:none;">LOGOUT</button>
+        <div style="display: flex; gap: 8px;">
+            <button class="lang-btn active" onclick="setLang('en', this)"
+                style="background:var(--glass); border:1px solid var(--border-glow); color:var(--neon-cyan); padding:5px 12px; border-radius:8px; font-weight:800; cursor:none;">EN</button>
+            <button class="lang-btn" onclick="setLang('th', this)"
+                style="background:var(--glass); border:1px solid var(--border-glow); color:var(--neon-cyan); padding:5px 12px; border-radius:8px; font-weight:800; cursor:none;">TH</button>
+        </div>
+    </div>
+
+    <canvas id="canvas-particles"></canvas>
+    <canvas id="canvas-lightning"></canvas>
+
+    <div class="dashboard" id="main-dashboard">
+        <div class="sidebar">
+            <div class="hero-clock">
+                <span id="label-control"
+                    style="font-size: 0.6rem; letter-spacing: 5px; color: var(--neon-cyan);">RAIKIRI ENGINE</span>
+                <h2 id="live-clock">00:00:00</h2>
+            </div>
+            <div class="form-section" style="display:flex; flex-direction:column; gap:1.2rem;">
+                <div class="mode-tags" style="display:flex; gap:10px;">
+                    <div class="mode-tag active" id="mode-normal" onclick="setMode(1, this)">NORMAL</div>
+                    <div class="mode-tag" id="mode-dungeon" onclick="setMode(2, this)">MINUTE MATCH</div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:5px;"><label id="label-task"
+                        style="color:var(--neon-purple); font-size:11px; font-weight:800;">TASK NAME</label><input
+                        type="text" id="inp-name" placeholder="..."></div>
+                <div id="time-input-container" style="display:flex; flex-direction:column; gap:5px;"><label
+                        id="label-timing" style="color:var(--neon-purple); font-size:11px; font-weight:800;">TIME
+                        SELECT</label><input type="time" id="inp-time"></div>
+                <div id="multi-time-container" style="display:none; flex-direction:column; gap:5px;"><label
+                        id="label-intervals" style="color:var(--neon-purple); font-size:11px; font-weight:800;">MINUTES
+                        LIST</label><input type="text" id="inp-multi" placeholder="00:00"></div>
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    <label id="label-freq"
+                        style="color:var(--neon-purple); font-size:11px; font-weight:800;">FREQUENCY</label>
+                    <select id="inp-freq">
+                        <option value="once" id="opt-once">Run Once</option>
+                        <option value="daily" id="opt-daily">Daily Loop</option>
+                    </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    <label id="label-sound" style="color:var(--neon-purple); font-size:11px; font-weight:800;">SOUND
+                        ENGINE</label>
+                    <select id="inp-sound" onchange="checkCustomSound()">
+                        <option value="sound1">Astra Nova</option>
+                        <option value="sound2">Neon Pulse</option>
+                        <option value="sound3">Void Echo</option>
+                        <option value="custom" id="opt-custom">Custom...</option>
+                        <option value="mute" id="opt-mute">Mute</option>
+                    </select>
+                    <input type="file" id="inp-file" style="display: none;">
+                </div>
+                <button class="btn-launch" onclick="launchAlarm()">
+                    <div
+                        style="border-left:20px solid white; border-top:12px solid transparent; border-bottom:12px solid transparent; margin-left:5px;">
+                    </div>
+                </button>
+            </div>
+        </div>
+        <div class="main-view">
+            <h3 id="label-timeline" style="letter-spacing: 5px; color: var(--neon-pink); font-weight:800;">TIMELINE
+                ACTIVE</h3>
+            <div id="stat-count" style="font-size: 11px; color: var(--neon-cyan); font-weight:800;">0 ACTIVE EVENTS
+            </div>
+            <div class="alarm-grid" id="alarm-grid"></div>
+        </div>
+    </div>
+
+    <div id="alert-overlay">
+        <h2 id="alert-time">00:00</h2>
+        <p id="alert-name" style="color:var(--neon-cyan); z-index:90001; letter-spacing:10px; font-weight:800;">CRITICAL
+            EVENT</p>
+        <button class="btn-deactivate" id="deactivate-btn" onclick="killAlarm()">DEACTIVATE</button>
+    </div>
+
+    <audio id="audio-sound1" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" loop></audio>
+    <audio id="audio-sound2" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" loop></audio>
+    <audio id="audio-sound3" src="https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3" loop></audio>
+    <audio id="audio-custom" loop></audio>
+
+    <script>
+        const body = document.getElementById('app-body');
+        const db = document.getElementById('main-dashboard');
+        const spotlight = document.getElementById('spotlight');
+        const cursor = document.getElementById('cursor');
+        const cL = document.getElementById('canvas-lightning');
+        const ctxL = cL.getContext('2d');
+        const cP = document.getElementById('canvas-particles');
+        const ctxP = cP.getContext('2d');
+
+        let bolts = [];
+        let mouseTrailBolts = [];
+        let lastMouse = { x: 0, y: 0 };
+
+        function resize() { cL.width = cP.width = window.innerWidth; cL.height = cP.height = window.innerHeight; }
+        window.onresize = resize; resize();
+
+        class Bolt {
+            constructor(x, y, tx, ty) {
+                this.x = x; this.y = y; this.tx = tx; this.ty = ty;
+                this.life = 1.0; this.segments = this.createSegments();
+            }
+            createSegments() {
+                let segs = []; let currX = this.x; let currY = this.y; let parts = 6;
+                for (let i = 0; i < parts; i++) {
+                    let nX = currX + (this.tx - currX) / (parts - i) + (Math.random() - 0.5) * 50;
+                    let nY = currY + (this.ty - currY) / (parts - i) + (Math.random() - 0.5) * 50;
+                    segs.push({ x1: currX, y1: currY, x2: nX, y2: nY }); currX = nX; currY = nY;
+                } return segs;
+            }
+            draw(ctx) {
+                const color = body.classList.contains('is-alerting') ? '#ff007f' : '#00f3ff';
+                ctx.strokeStyle = color; ctx.globalAlpha = this.life;
+                ctx.lineWidth = 2; ctx.shadowBlur = 15; ctx.shadowColor = color;
+                ctx.beginPath();
+                this.segments.forEach(s => { ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); });
+                ctx.stroke(); ctx.globalAlpha = 1; this.life -= 0.05;
+            }
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            spotlight.style.setProperty('--x', e.clientX + 'px'); spotlight.style.setProperty('--y', e.clientY + 'px');
+            cursor.style.transform = `translate(${e.clientX - 5}px, ${e.clientY - 5}px)`;
+
+            if (Math.hypot(e.clientX - lastMouse.x, e.clientY - lastMouse.y) > 25) {
+                mouseTrailBolts.push(new Bolt(lastMouse.x, lastMouse.y, e.clientX, e.clientY));
+                lastMouse = { x: e.clientX, y: e.clientY };
+            }
+            db.style.transform = `rotateX(${(window.innerHeight / 2 - e.pageY) / 40}deg) rotateY(${-(window.innerWidth / 2 - e.pageX) / 40}deg)`;
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            for (let i = 0; i < 8; i++) {
+                let ang = (Math.PI * 2 / 8) * i; let dist = 150 + Math.random() * 100;
+                bolts.push(new Bolt(e.clientX, e.clientY, e.clientX + Math.cos(ang) * dist, e.clientY + Math.sin(ang) * dist));
+            }
+        });
+
+        let particles = [];
+        class Particle {
+            constructor() { this.x = Math.random() * cP.width; this.y = Math.random() * cP.height; this.baseX = this.x; this.baseY = this.y; this.size = Math.random() * 2 + 1; this.density = Math.random() * 30 + 1; }
+            update() {
+                let dx = lastMouse.x - this.x; let dy = lastMouse.y - this.y; let d = Math.sqrt(dx * dx + dy * dy);
+                if (d < 150) { let f = (150 - d) / 150; this.x -= (dx / d) * f * this.density; this.y -= (dy / d) * f * this.density; }
+                else { this.x -= (this.x - this.baseX) / 10; this.y -= (this.y - this.baseY) / 10; }
+            }
+            draw() {
+                ctxP.fillStyle = body.classList.contains('is-alerting') ? '#ff007f' : '#00f3ff';
+                ctxP.beginPath(); ctxP.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctxP.fill();
+            }
+        }
+        for (let i = 0; i < 100; i++) particles.push(new Particle());
+
+        function animate() {
+            ctxL.clearRect(0, 0, cL.width, cL.height); ctxP.clearRect(0, 0, cP.width, cP.height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            bolts.forEach((b, i) => { b.draw(ctxL); if (b.life <= 0) bolts.splice(i, 1); });
+            mouseTrailBolts.forEach((b, i) => { b.draw(ctxL); if (b.life <= 0) mouseTrailBolts.splice(i, 1); });
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // SESSION CHECK
+        const currentUser = localStorage.getItem('current_user');
+        if (!currentUser) { window.location.href = 'login.html'; }
+
+        // ALARM SYSTEM
+        let currentLang = 'en';
+        let currentMode = 1;
+        const storageKey = `alarms_${currentUser}_v6`;
+        let alarms = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        let activeAudio = null;
+
+        function logout() {
+            localStorage.removeItem('current_user');
+            window.location.href = 'login.html';
+        }
+        const i18n = {
+            en: { control: "RAIKIRI ENGINE", mode1: "NORMAL", mode2: "MINUTE MATCH", task: "TASK NAME", timing: "TIME SELECT", intervals: "MINUTES LIST", freq: "FREQUENCY", once: "Run Once", daily: "Daily Loop", sound: "SOUND ENGINE", custom: "Custom...", mute: "Mute", timeline: "TIMELINE ACTIVE", triggered: "CRITICAL EVENT", deactivate: "DEACTIVATE", void: "DEL", events: "ACTIVE EVENTS", everyHour: "Every Hour" },
+            th: { control: "ระบบตัดสายฟ้า", mode1: "แจ้งเตือนปกติ", mode2: "ระบุนาที", task: "ชื่อกิจกรรม", timing: "ตั้งเวลา", intervals: "นาทีที่แจ้ง", freq: "ความถี่", once: "ครั้งเดียว", daily: "ทุกวัน", sound: "เสียงปลุก", custom: "เลือกไฟล์", mute: "ปิดเสียง", timeline: "รายการทำงาน", triggered: "แจ้งเตือนกิจกรรม", deactivate: "ปิดระบบ", void: "ลบ", events: "รายการที่ทำงาน", everyHour: "ทุกชั่วโมง" }
+        };
+
+        function setLang(lang, btn) { currentLang = lang; document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); const d = i18n[lang]; document.getElementById('label-control').textContent = d.control; document.getElementById('mode-normal').textContent = d.mode1; document.getElementById('mode-dungeon').textContent = d.mode2; document.getElementById('label-task').textContent = d.task; document.getElementById('label-timing').textContent = d.timing; document.getElementById('label-intervals').textContent = d.intervals; document.getElementById('label-freq').textContent = d.freq; document.getElementById('opt-once').textContent = d.once; document.getElementById('opt-daily').textContent = d.daily; document.getElementById('label-sound').textContent = d.sound; document.getElementById('opt-custom').textContent = d.custom; document.getElementById('opt-mute').textContent = d.mute; document.getElementById('label-timeline').textContent = d.timeline; document.getElementById('alert-name').textContent = d.triggered; document.getElementById('deactivate-btn').textContent = d.deactivate; renderAlarms(); }
+        function setMode(m, btn) { currentMode = m; document.querySelectorAll('.mode-tag').forEach(t => t.classList.remove('active')); btn.classList.add('active'); document.getElementById('time-input-container').style.display = (m === 1) ? 'flex' : 'none'; document.getElementById('multi-time-container').style.display = (m === 2) ? 'flex' : 'none'; }
+
+        function launchAlarm() {
+            const name = document.getElementById('inp-name').value || (currentLang === 'en' ? 'VOID' : 'ว่าง');
+            const sound = document.getElementById('inp-sound').value; const freq = document.getElementById('inp-freq').value;
+            if (currentMode === 1) { const time = document.getElementById('inp-time').value; if (!time) return; createAlarmObj(name, [time], sound, freq, false); }
+            else { const multi = document.getElementById('inp-multi').value; if (!multi) return; const mins = multi.split(/[\s,\-]+/).map(p => { const mm = p.includes(':') ? parseInt(p.split(':')[1]) : parseInt(p); return (!isNaN(mm) && mm >= 0 && mm < 60) ? mm.toString().padStart(2, '0') : null; }).filter(v => v); if (mins.length === 0) return; createAlarmObj(name, [...new Set(mins)], sound, freq, true); }
+        }
+        function createAlarmObj(name, times, sound, freq, isMinuteMatcher) { alarms.push({ id: Date.now(), name, times, sound, freq, isMinuteMatcher, triggeredTimes: [] }); localStorage.setItem(storageKey, JSON.stringify(alarms)); renderAlarms(); }
+
+        function renderAlarms() {
+            const grid = document.getElementById('alarm-grid'); grid.innerHTML = ''; const d = i18n[currentLang]; document.getElementById('stat-count').textContent = `${alarms.length} ${d.events}`;
+            alarms.forEach(a => {
+                const card = document.createElement('div'); card.className = 'alarm-card';
+                card.innerHTML = `<div style="display:flex; justify-content:space-between; font-size:10px; font-weight:800; color:var(--neon-cyan); margin-bottom:10px;"><span>${a.freq.toUpperCase()}</span><button onclick="deleteAlarm(${a.id})" style="background:none; border:1px solid var(--neon-pink); color:var(--neon-pink); border-radius:4px; cursor:pointer; padding:2px 5px;">${d.void}</button></div><div style="color:var(--neon-purple); font-weight:800; margin-bottom:5px;">${a.name}</div><div style="color:#fff; font-size:2.2rem; font-weight:800; text-shadow:0 0 10px var(--neon-cyan);">${a.isMinuteMatcher ? d.everyHour : a.times[0]}</div><div style="font-size:10px; color:var(--neon-purple); font-weight:800;">${a.times.join(' | ')}</div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        function deleteAlarm(id) { alarms = alarms.filter(a => a.id !== id); localStorage.setItem(storageKey, JSON.stringify(alarms)); renderAlarms(); }
+        function updateClock() {
+            const now = new Date(); const h = now.getHours().toString().padStart(2, '0'); const m = now.getMinutes().toString().padStart(2, '0'); const s = now.getSeconds().toString().padStart(2, '0');
+            document.getElementById('live-clock').textContent = `${h}:${m}:${s}`;
+            if (s === "00") checkAlarms(h, m);
+        }
+        setInterval(updateClock, 1000);
+        function checkAlarms(h, m) {
+            const nowTime = `${h}:${m}`; const today = new Date().toDateString();
+            alarms.forEach(a => {
+                let match = a.isMinuteMatcher ? a.times.includes(m) : a.times.includes(nowTime);
+                let triggerKey = today + '_' + nowTime;
+                if (match && !a.triggeredTimes.includes(triggerKey)) { triggerSystem(a, nowTime); a.triggeredTimes.push(triggerKey); }
+            });
+        }
+        function triggerSystem(a, time) {
+            body.classList.add('is-alerting');
+            document.getElementById('alert-time').textContent = time;
+            document.getElementById('alert-overlay').style.display = 'flex';
+            if (a.sound !== 'mute') { const audio = document.getElementById('audio-' + a.sound); if (audio) { audio.currentTime = 0; audio.play(); activeAudio = audio; } }
+        }
+        function killAlarm() {
+            body.classList.remove('is-alerting');
+            document.getElementById('alert-overlay').style.display = 'none';
+            if (activeAudio) activeAudio.pause();
+        }
+        function checkCustomSound() { document.getElementById('inp-file').style.display = (document.getElementById('inp-sound').value === 'custom') ? 'block' : 'none'; }
+        document.getElementById('inp-file').onchange = (e) => { const r = new FileReader(); r.onload = (ev) => { document.getElementById('audio-custom').src = ev.target.result; }; r.readAsDataURL(e.target.files[0]); };
+        document.getElementById('user-display').textContent = `ID: ${currentUser.toUpperCase()}`;
+        renderAlarms();
+    </script>
+</body>
+
+</html>
